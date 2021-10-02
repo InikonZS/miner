@@ -4,7 +4,9 @@ import {IGameFieldOptions, IGameResult} from './dto';
 class Cell extends Control{
   public value: number;
   public isBomb: boolean;
-  public onOpen: (result:boolean)=>void;
+  public onOpenEnd: (result:boolean)=>void;
+  public onOpenStart: (result:boolean)=>boolean;
+  private isLocked: boolean;
 
   constructor(parentNode:HTMLElement, value:number, isBomb:boolean){
     super(parentNode, 'div', 'cell');
@@ -18,14 +20,26 @@ class Cell extends Control{
   }
 
   private open():Promise<void>{
-    this.node.textContent = this.isBomb ? 'X' : this.value.toString();
-    return this.animateOpen().then(()=>{
-      this.onOpen(this.isBomb);
-    });
+    if (!this.isLocked){
+      if (!this.onOpenStart(this.isBomb)) {
+        return;
+      };
+      return this.animateOpen().then(()=>{
+        this.onOpenEnd(this.isBomb);
+      });
+    }
   }
 
-  private animateOpen():Promise<void>{
+  public animateOpen(duration?:number):Promise<void>{
+    if(this.isLocked){
+      return Promise.resolve();
+    }
+    this.lock();
     return new Promise((resolve, reject)=>{
+      this.node.textContent = this.isBomb ? 'X' : this.value.toString();
+      if (duration){
+        this.node.style.transitionDuration = `${duration}ms`;
+      }
       this.node.classList.add('cell__opened');
       this.node.ontransitionend = (e)=>{
         if (e.target === this.node){
@@ -34,12 +48,23 @@ class Cell extends Control{
       }
     });
   }
+
+  public lock(){
+    this.isLocked = true;
+  }
+
+  public unlock(){
+    this.isLocked = false;
+  }
+
 }
 
 export class GameField extends Control{
   public onFinish: (result:IGameResult)=>void;
   private counter: number;
   private fieldView: Control<HTMLElement>;
+  private isLocked: boolean;
+  private cells: Array<Array<Cell>> = [[]];
 
   constructor(parentNode:HTMLElement, {xSize, ySize, bombCount}:IGameFieldOptions){
     super(parentNode, 'div', 'gamefield');
@@ -47,36 +72,48 @@ export class GameField extends Control{
     const fieldData = generatethis(xSize, ySize, bombCount);
     this.counter = xSize * ySize;
 
-    const cells: Array<Array<Cell>> = [[]];
-    this.fieldView = new Control(this.node, 'div', 'field')
+    
+    this.fieldView = new Control(this.node, 'div', 'field');
+    this.isLocked = false;
     for (let i = 0; i< ySize; i++){
       let row = [];
       let rowView = new Control(this.fieldView.node, 'div', 'row');
       for (let j = 0; j< xSize; j++){
         let cell = new Cell(rowView.node, calculateNearest(fieldData, {x:j, y:i}), fieldData[i][j]);
-        cell.onOpen = (isBomb)=>{
-          console.log('fdsfsd');
+        cell.onOpenStart = ()=>{
+          if (this.isLocked){
+            return false;
+          }
+          let lastLocked = this.isLocked
+          this.isLocked = true;
+          return !lastLocked;
+        }
+        cell.onOpenEnd = (isBomb)=>{ 
           if (isBomb){
             this.finish({isWin: false});
           } else {
             this.counter--;
             if (this.counter == bombCount){
               this.finish({isWin: true});
+            } else {
+              this.isLocked = false;
             }
           };
         }
         row.push(cell);
       }
-      cells.push(row);
+      this.cells.push(row);
     }
-
-    //const userInput = new Control<HTMLInputElement>(this.node, 'input', '');
 
     const finishButton = new Control(this.node, 'button', '', 'cancel game');
     finishButton.node.onclick = ()=>{
       console.log('finish')
       this.finish({isWin: false});
     }
+  }
+
+  private animateOpenCells(){
+    return Promise.all(this.cells.flat().map((cell, index)=>cell.animateOpen(index*30+100)));
   }
 
   private animateClose():Promise<void>{
@@ -92,9 +129,12 @@ export class GameField extends Control{
   }
 
   private finish(result:IGameResult){
-    this.animateClose().then(()=>{
+    this.animateOpenCells().then(()=>{
+      return this.animateClose()
+    }).then(()=>{
       this.onFinish(result);
     });
+    
   }
 }
 
