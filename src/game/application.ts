@@ -3,6 +3,7 @@ import Signal from "../common/signal";
 import {Lobby} from './lobby';
 import {GameField} from './gameField';
 import {Victory} from './victory';
+import { IGameFieldOptions } from "./dto";
 
 
 export class Application extends Control{
@@ -20,7 +21,7 @@ export class Application extends Control{
     }
   }
 
-  private gameCycle(options:string){
+  private gameCycle(options:IGameFieldOptions){
     const game = new GameField(this.node, options);
     game.onFinish = (result)=>{
       game.destroy();

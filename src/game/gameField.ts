@@ -1,4 +1,5 @@
 import Control from "../common/control";
+import {IGameFieldOptions, IGameResult} from './dto';
 
 class Cell extends Control{
   public value: number;
@@ -11,22 +12,20 @@ class Cell extends Control{
     this.node.textContent = '_';
   }
 
-  open(){
+  open():boolean{
     this.node.textContent = this.isBomb ? 'X' : this.value.toString();
+    return this.isBomb;
   }
 }
 
 export class GameField extends Control{
-  public onFinish: (result:boolean)=>void;
-
-  constructor(parentNode:HTMLElement, options:string){
+  public onFinish: (result:IGameResult)=>void;
+  private counter: number;
+  constructor(parentNode:HTMLElement, {xSize, ySize, bombCount}:IGameFieldOptions){
     super(parentNode);
-    const gameElement = new Control(this.node, 'div', '', options);
 
-    let xSize = 10;
-    let ySize = 7;
-
-    const fieldData = generateField(xSize, ySize);
+    const fieldData = generateField(xSize, ySize, bombCount);
+    this.counter = xSize * ySize;
 
     const field: Array<Array<Cell>> = [[]];
     const fieldView = new Control(this.node, 'div', 'field')
@@ -36,7 +35,14 @@ export class GameField extends Control{
       for (let j = 0; j< xSize; j++){
         let cell = new Cell(rowView.node, calculateNearest(fieldData, {x:j, y:i}), fieldData[i][j]);
         cell.node.onclick = ()=>{
-          cell.open();
+          if (cell.open()){
+            this.onFinish({isWin: false});
+          } else {
+            this.counter--;
+            if (this.counter == bombCount){
+              this.onFinish({isWin: true});
+            }
+          };
         }
         row.push(cell);
       }
@@ -47,7 +53,7 @@ export class GameField extends Control{
 
     const finishButton = new Control(this.node, 'button', '', 'finish game');
     finishButton.node.onclick = ()=>{
-      this.onFinish(options.length < userInput.node.value.length);
+      this.onFinish({isWin: false});
     }
   }
 }
@@ -66,7 +72,7 @@ function calculateNearest(field:Array<Array<boolean>>, position:{x:number, y:num
   return result;
 }
 
-function generateField(xSize:number, ySize:number): Array<Array<boolean>>{
+function generateField(xSize:number, ySize:number, bombCount:number): Array<Array<boolean>>{
   let result:Array<Array<boolean>> = [];
   let cells: Array<{x:number, y:number}> = [];
   for (let i = 0; i< ySize; i++){
@@ -79,7 +85,7 @@ function generateField(xSize:number, ySize:number): Array<Array<boolean>>{
   }
 
   let bombCells:Array<{x:number, y:number}> = [];
-  for (let i = 0; i< 10; i++){
+  for (let i = 0; i< bombCount; i++){
     if (!cells.length){
       throw new Error('genaration error');
     }
