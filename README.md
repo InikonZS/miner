@@ -1,0 +1,1 @@
+[DEMO](https://inikonzs.github.io/miner/public)
