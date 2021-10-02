@@ -4,15 +4,20 @@ import {IGameFieldOptions, IGameResult} from './dto';
 class Cell extends Control{
   public value: number;
   public isBomb: boolean;
+  public onOpen: (result:boolean)=>void;
 
   constructor(parentNode:HTMLElement, value:number, isBomb:boolean){
     super(parentNode, 'div', 'cell');
     this.value = value;
     this.isBomb = isBomb;
     this.node.textContent = '_';
+
+    this.node.onclick = ()=>{
+      this.onOpen(this.open());
+    }
   }
 
-  open():boolean{
+  private open():boolean{
     this.node.textContent = this.isBomb ? 'X' : this.value.toString();
     return this.isBomb;
   }
@@ -27,15 +32,15 @@ export class GameField extends Control{
     const fieldData = generateField(xSize, ySize, bombCount);
     this.counter = xSize * ySize;
 
-    const field: Array<Array<Cell>> = [[]];
+    const cells: Array<Array<Cell>> = [[]];
     const fieldView = new Control(this.node, 'div', 'field')
     for (let i = 0; i< ySize; i++){
       let row = [];
       let rowView = new Control(fieldView.node, 'div', 'row');
       for (let j = 0; j< xSize; j++){
         let cell = new Cell(rowView.node, calculateNearest(fieldData, {x:j, y:i}), fieldData[i][j]);
-        cell.node.onclick = ()=>{
-          if (cell.open()){
+        cell.onOpen = (isBomb)=>{
+          if (isBomb){
             this.onFinish({isWin: false});
           } else {
             this.counter--;
@@ -46,19 +51,24 @@ export class GameField extends Control{
         }
         row.push(cell);
       }
-      field.push(row);
+      cells.push(row);
     }
 
-    const userInput = new Control<HTMLInputElement>(this.node, 'input', '');
+    //const userInput = new Control<HTMLInputElement>(this.node, 'input', '');
 
-    const finishButton = new Control(this.node, 'button', '', 'finish game');
+    const finishButton = new Control(this.node, 'button', '', 'cancel game');
     finishButton.node.onclick = ()=>{
       this.onFinish({isWin: false});
     }
   }
 }
 
-function calculateNearest(field:Array<Array<boolean>>, position:{x:number, y:number}):number{
+interface IVector2{
+  x:number;
+  y:number;
+}
+
+function calculateNearest(field:Array<Array<boolean>>, position:IVector2):number{
   let result = 0;
   for (let i = -1; i<= 1; i++){
     for (let j = -1; j<=1; j++){ 
@@ -74,7 +84,7 @@ function calculateNearest(field:Array<Array<boolean>>, position:{x:number, y:num
 
 function generateField(xSize:number, ySize:number, bombCount:number): Array<Array<boolean>>{
   let result:Array<Array<boolean>> = [];
-  let cells: Array<{x:number, y:number}> = [];
+  let cells: Array<IVector2> = [];
   for (let i = 0; i< ySize; i++){
     let row = [];
     for (let j = 0; j< xSize; j++){  
@@ -84,7 +94,7 @@ function generateField(xSize:number, ySize:number, bombCount:number): Array<Arra
     result.push(row);
   }
 
-  let bombCells:Array<{x:number, y:number}> = [];
+  let bombCells:Array<IVector2> = [];
   for (let i = 0; i< bombCount; i++){
     if (!cells.length){
       throw new Error('genaration error');
