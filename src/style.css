@@ -19,11 +19,12 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  transition-duration: 1400ms;
+  transition-duration: 400ms;
+  transform: rotateY(-180deg);
 }
 
 .cell__opened{
-  transform: rotateY(180deg);
+  transform: rotateY(0deg);
 }
 
 .gamefield{

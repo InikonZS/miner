@@ -36,7 +36,7 @@ class Cell extends Control{
     }
     this.lock();
     return new Promise((resolve, reject)=>{
-      this.node.textContent = this.isBomb ? 'X' : this.value.toString();
+      this.node.textContent = this.isBomb ? 'X' : this.value ? this.value.toString():'';
       if (duration){
         this.node.style.transitionDuration = `${duration}ms`;
       }
@@ -64,12 +64,12 @@ export class GameField extends Control{
   private counter: number;
   private fieldView: Control<HTMLElement>;
   private isLocked: boolean;
-  private cells: Array<Array<Cell>> = [[]];
+  private cells: Array<Array<Cell>> = [];
 
   constructor(parentNode:HTMLElement, {xSize, ySize, bombCount}:IGameFieldOptions){
     super(parentNode, 'div', 'gamefield');
 
-    const fieldData = generatethis(xSize, ySize, bombCount);
+    const fieldData = generateField(xSize, ySize, bombCount);
     this.counter = xSize * ySize;
 
     
@@ -84,6 +84,7 @@ export class GameField extends Control{
           if (this.isLocked){
             return false;
           }
+          this.checkFigure({x:j, y:i});
           let lastLocked = this.isLocked
           this.isLocked = true;
           return !lastLocked;
@@ -112,9 +113,58 @@ export class GameField extends Control{
     }
   }
 
-  private animateOpenCells(){
-    return Promise.all(this.cells.flat().map((cell, index)=>cell.animateOpen(index*30+100)));
+  private checkFigure(initialPoint:IVector2){
+    console.log(this.cells[initialPoint.y][initialPoint.x].value);
+    if (this.cells[initialPoint.y][initialPoint.x].value !== 0){
+      return [];
+    }
+    const waveField = this.cells.map(it=>{
+      return it.map(jt=>{
+        return {value: jt.value, generation:Number.MAX_SAFE_INTEGER}
+      })
+    });
+
+    const moves:Array<IVector2> = [{x:0, y:1},{x:1, y:0}, {x:-1, y:0}, {x:0, y:-1},
+      {x:1, y:1},{x:1, y:-1}, {x:-1, y:1}, {x:-1, y:-1}];
+
+    const trace = (points:Array<IVector2>, currentGen:number, figPoints:Array<IVector2>): Array<IVector2> =>{
+      let nextGen:Array<IVector2> = [];
+      points.forEach(point=>{
+        moves.forEach(move=>{
+          let moved: IVector2 = {x:point.x + move.x, y: point.y + move.y};
+          if (moved.y>=0 && moved.x>=0 && moved.y<waveField.length && moved.x<waveField[0].length){
+            let cell = waveField[moved.y][moved.x];
+            if (cell && cell.generation > currentGen && cell.value == 0){
+              nextGen.push(moved); 
+              cell.generation = currentGen;
+              figPoints.push(moved);
+              this.cells[moved.y][moved.x].animateOpen();
+              //count+=1;
+            } else {
+              if (cell.value !=0){
+                this.cells[moved.y][moved.x].animateOpen();
+              }
+            }
+          }
+        });
+      });
+      if (nextGen.length){
+        return trace(nextGen, currentGen+1, figPoints);
+      } else {
+        return figPoints;
+      }
+    }
+    
+    return trace([initialPoint], 0, []);
   }
+
+  private animateOpenCells(){
+    return Promise.all(this.cells.flat().map((cell, index)=>cell.animateOpen(/*index*30+100)*/1500+Math.random()*600)));
+  }
+
+  /*private animateZeroCells(){
+    return Promise.all(this.cells.flat().map((cell, index)=>cell.animateOpen(/*index*30+100)*///1500+Math.random()*600)));
+  //}*/
 
   private animateClose():Promise<void>{
     return new Promise((resolve, reject)=>{
@@ -130,7 +180,7 @@ export class GameField extends Control{
 
   private finish(result:IGameResult){
     this.animateOpenCells().then(()=>{
-      return this.animateClose()
+      return //this.animateClose()
     }).then(()=>{
       this.onFinish(result);
     });
@@ -157,7 +207,7 @@ function calculateNearest(field:Array<Array<boolean>>, position:IVector2):number
   return result;
 }
 
-function generatethis(xSize:number, ySize:number, bombCount:number): Array<Array<boolean>>{
+function generateField(xSize:number, ySize:number, bombCount:number): Array<Array<boolean>>{
   let result:Array<Array<boolean>> = [];
   let cells: Array<IVector2> = [];
   for (let i = 0; i< ySize; i++){
