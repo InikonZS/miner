@@ -13,39 +13,55 @@ class Cell extends Control{
     this.node.textContent = '_';
 
     this.node.onclick = ()=>{
-      this.onOpen(this.open());
+      this.open()
     }
   }
 
-  private open():boolean{
+  private open():Promise<void>{
     this.node.textContent = this.isBomb ? 'X' : this.value.toString();
-    return this.isBomb;
+    return this.animateOpen().then(()=>{
+      this.onOpen(this.isBomb);
+    });
+  }
+
+  private animateOpen():Promise<void>{
+    return new Promise((resolve, reject)=>{
+      this.node.classList.add('cell__opened');
+      this.node.ontransitionend = (e)=>{
+        if (e.target === this.node){
+          resolve();
+        }
+      }
+    });
   }
 }
 
 export class GameField extends Control{
   public onFinish: (result:IGameResult)=>void;
   private counter: number;
-  constructor(parentNode:HTMLElement, {xSize, ySize, bombCount}:IGameFieldOptions){
-    super(parentNode);
+  private fieldView: Control<HTMLElement>;
 
-    const fieldData = generateField(xSize, ySize, bombCount);
+  constructor(parentNode:HTMLElement, {xSize, ySize, bombCount}:IGameFieldOptions){
+    super(parentNode, 'div', 'gamefield');
+
+    const fieldData = generatethis(xSize, ySize, bombCount);
     this.counter = xSize * ySize;
 
     const cells: Array<Array<Cell>> = [[]];
-    const fieldView = new Control(this.node, 'div', 'field')
+    this.fieldView = new Control(this.node, 'div', 'field')
     for (let i = 0; i< ySize; i++){
       let row = [];
-      let rowView = new Control(fieldView.node, 'div', 'row');
+      let rowView = new Control(this.fieldView.node, 'div', 'row');
       for (let j = 0; j< xSize; j++){
         let cell = new Cell(rowView.node, calculateNearest(fieldData, {x:j, y:i}), fieldData[i][j]);
         cell.onOpen = (isBomb)=>{
+          console.log('fdsfsd');
           if (isBomb){
-            this.onFinish({isWin: false});
+            this.finish({isWin: false});
           } else {
             this.counter--;
             if (this.counter == bombCount){
-              this.onFinish({isWin: true});
+              this.finish({isWin: true});
             }
           };
         }
@@ -58,8 +74,27 @@ export class GameField extends Control{
 
     const finishButton = new Control(this.node, 'button', '', 'cancel game');
     finishButton.node.onclick = ()=>{
-      this.onFinish({isWin: false});
+      console.log('finish')
+      this.finish({isWin: false});
     }
+  }
+
+  private animateClose():Promise<void>{
+    return new Promise((resolve, reject)=>{
+      let field = this.fieldView;
+      field.node.classList.add('field__closed');
+      field.node.ontransitionend = (e)=>{
+        if (e.target === field.node){
+          resolve();
+        }
+      }
+    });
+  }
+
+  private finish(result:IGameResult){
+    this.animateClose().then(()=>{
+      this.onFinish(result);
+    });
   }
 }
 
@@ -82,7 +117,7 @@ function calculateNearest(field:Array<Array<boolean>>, position:IVector2):number
   return result;
 }
 
-function generateField(xSize:number, ySize:number, bombCount:number): Array<Array<boolean>>{
+function generatethis(xSize:number, ySize:number, bombCount:number): Array<Array<boolean>>{
   let result:Array<Array<boolean>> = [];
   let cells: Array<IVector2> = [];
   for (let i = 0; i< ySize; i++){

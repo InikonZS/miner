@@ -1,9 +1,16 @@
 .field{
-
+  transition-duration: 3000ms;
 }
+
+.field__closed{
+  transform: rotateY(180deg);
+}
+
 .row{
   display: flex;
+  perspective: 1000px;
 }
+
 .cell{
   width: 30px;
   height: 30px;
@@ -12,4 +19,16 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  transition-duration: 1400ms;
+}
+
+.cell__opened{
+  transform: rotateY(180deg);
+}
+
+.gamefield{
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
 }
