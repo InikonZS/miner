@@ -6,7 +6,7 @@ class Cell extends Control{
   public isBomb: boolean;
   public onOpenEnd: (result:boolean)=>void;
   public onOpenStart: (result:boolean)=>boolean;
-  private isLocked: boolean;
+  public isLocked: boolean;
 
   constructor(parentNode:HTMLElement, value:number, isBomb:boolean){
     super(parentNode, 'div', 'cell');
@@ -19,7 +19,7 @@ class Cell extends Control{
     }
   }
 
-  private open():Promise<void>{
+  public open():Promise<void>{
     if (!this.isLocked){
       if (!this.onOpenStart(this.isBomb)) {
         return;
@@ -84,7 +84,18 @@ export class GameField extends Control{
           if (this.isLocked){
             return false;
           }
-          this.checkFigure({x:j, y:i});
+          let fig = this.checkFigure({x:j, y:i});
+          console.log(fig.length, this.counter);
+          if (fig.length>1){
+            this.animateZeroCells(fig).then(()=>{
+              this.counter-=fig.length-1;
+              if (this.counter == bombCount){
+                this.finish({isWin: true});
+              } else {
+                this.isLocked = false;
+              }
+            });
+          }
           let lastLocked = this.isLocked
           this.isLocked = true;
           return !lastLocked;
@@ -120,14 +131,14 @@ export class GameField extends Control{
     }
     const waveField = this.cells.map(it=>{
       return it.map(jt=>{
-        return {value: jt.value, generation:Number.MAX_SAFE_INTEGER}
+        return {value: jt.value, generation:jt.isLocked ? -1 :Number.MAX_SAFE_INTEGER}
       })
     });
 
     const moves:Array<IVector2> = [{x:0, y:1},{x:1, y:0}, {x:-1, y:0}, {x:0, y:-1},
       {x:1, y:1},{x:1, y:-1}, {x:-1, y:1}, {x:-1, y:-1}];
 
-    const trace = (points:Array<IVector2>, currentGen:number, figPoints:Array<IVector2>): Array<IVector2> =>{
+    const trace = (points:Array<IVector2>, currentGen:number, figPoints:Array<Cell>): Array<Cell> =>{
       let nextGen:Array<IVector2> = [];
       points.forEach(point=>{
         moves.forEach(move=>{
@@ -137,12 +148,14 @@ export class GameField extends Control{
             if (cell && cell.generation > currentGen && cell.value == 0){
               nextGen.push(moved); 
               cell.generation = currentGen;
-              figPoints.push(moved);
-              this.cells[moved.y][moved.x].animateOpen();
+              figPoints.push(this.cells[moved.y][moved.x]);
+              //this.cells[moved.y][moved.x].animateOpen();
               //count+=1;
             } else {
-              if (cell.value !=0){
-                this.cells[moved.y][moved.x].animateOpen();
+              if (cell && cell.generation > currentGen && cell.value !=0){
+                cell.generation = currentGen;
+                figPoints.push(this.cells[moved.y][moved.x]);
+                //this.cells[moved.y][moved.x].animateOpen();
               }
             }
           }
@@ -162,9 +175,9 @@ export class GameField extends Control{
     return Promise.all(this.cells.flat().map((cell, index)=>cell.animateOpen(/*index*30+100)*/1500+Math.random()*600)));
   }
 
-  /*private animateZeroCells(){
-    return Promise.all(this.cells.flat().map((cell, index)=>cell.animateOpen(/*index*30+100)*///1500+Math.random()*600)));
-  //}*/
+  private animateZeroCells(cells:Array<Cell>){
+    return Promise.all(cells.map((cell, index)=>cell.animateOpen(/*index*30+100)*/1500+Math.random()*600)));
+  }
 
   private animateClose():Promise<void>{
     return new Promise((resolve, reject)=>{
